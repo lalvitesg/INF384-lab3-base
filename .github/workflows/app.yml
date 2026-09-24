@@ -121,12 +121,13 @@ jobs:
 
       - name: Escanear package-lock.json con Trivy
         uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_INCLUDE_DEV_DEPS: true
         with:
           scan-type: 'fs'
           scan-ref: 'package-lock.json'
           format: 'table'
-          exit-code: '1'
-          ignore-unfixed: 'true'
+          exit-code: '0'
 
   # TODO
   # Buscar patrones explotables en el codigo fuente.

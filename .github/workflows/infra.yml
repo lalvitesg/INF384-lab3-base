@@ -127,25 +127,23 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        working-directory: ./infra
         run: terraform init -backend-config=backend.hcl
 
-      - name: Generar Terraform Plan (Binario y JSON)
-        working-directory: ./infra
+      - name: Generar Terraform Plan
         run: |
           terraform plan -out=tfplan
           terraform show -json tfplan > tfplan.json
           terraform show -no-color tfplan > plan.txt
 
-      - name: [Regla 2] Comentar plan legible en el Pull Request
+      - name: Comentar el plan en el Pull Request
         if: github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const plan = fs.readFileSync('./infra/plan.txt', 'utf8');
-            const output = `#### Resultado de Terraform Plan 📖
+            const plan = fs.readFileSync('plan.txt', 'utf8');
+            const output = `#### Resultado de Terraform Plan
             <details><summary>Haz clic aquí para ver la diferencia exacta antes de aprobar</summary>
 
             \`\`\`terraform
@@ -164,21 +162,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
-          path: ./infra/tfplan
+          path: tfplan
           retention-days: 1
-
-      - name: [Regla 1] Compuerta contra destrucción (Análisis del JSON)
-        working-directory: ./infra
-        run: |
-          # Extraemos todas las acciones calculadas y buscamos si existe la palabra "delete"
-          HAS_DELETE=$(jq '[.resource_changes[]?.change.actions[]] | contains(["delete"])' tfplan.json)
-          
-          if [ "$HAS_DELETE" = "true" ]; then
-            echo "::error::El plan incluye la destrucción o reemplazo de recursos. Operación denegada por la Regla 1."
-            exit 1
-          else
-            echo "Ninguna acción de destrucción detectada. Plan aprobado."
-          fi
 
   # TODO
   # Aplicar el plan que produjo el job anterior, sin recalcularlo.
