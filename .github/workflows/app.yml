@@ -210,13 +210,56 @@ jobs:
   #   digest: # TODO
   #
   # Sustituir el paso centinela por la implementacion.
-  publicar:
+publicar:
+    needs: [calidad, secretos, dependencias, estatico]
+    if: github.ref == 'refs/heads/main' #
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build-push.outputs.digest }} #
     steps:
-      - name: Sin implementar
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Login en Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Construir y publicar imagen
+        id: build-push
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPO: inf384-lab3
         run: |
-          echo "::error::El job 'publicar' no esta implementado."
-          exit 1
+          # Extraer los 7 primeros caracteres del SHA para el tag inmutable
+          SHA=${GITHUB_SHA:0:7}
+          # Definir el tag de ambiente móvil
+          ENV_TAG=prd
+          
+          # Construir la imagen con la plataforma y el label especificados
+          docker build \
+            --platform linux/amd64 \
+            --label org.opencontainers.image.title=$REPO \
+            -t $REGISTRY/$REPO:$SHA \
+            .
+          
+          # Publicar la imagen con el tag inmutable
+          docker push $REGISTRY/$REPO:$SHA
+          
+          # Apuntar el tag de ambiente al manifiesto ya publicado y subirlo
+          docker tag $REGISTRY/$REPO:$SHA $REGISTRY/$REPO:$ENV_TAG
+          docker push $REGISTRY/$REPO:$ENV_TAG
+          
+          # Extraer el digest con el formato <registry>/<aplicacion>@sha256:... y exponerlo
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $REGISTRY/$REPO:$SHA)
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
   # Este job viene completo y no se modifica.
   # Las estrategias de despliegue y la verificacion posterior son contenido
