@@ -137,7 +137,7 @@ jobs:
           terraform show -json tfplan > tfplan.json
           terraform show -no-color tfplan > plan.txt
 
-      - name: [Regla 2] Comentar el plan en el Pull Request
+      - name: "[Regla 2] Comentar el plan en el Pull Request"
         if: github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@v7
@@ -167,7 +167,7 @@ jobs:
           path: ./infra/tfplan
           retention-days: 1
 
-      - name: [Regla 1] Compuerta contra destrucción
+      - name: "[Regla 1] Compuerta contra destrucción"
         working-directory: ./infra
         run: |
           HAS_DELETE=$(jq '[.resource_changes[]?.change.actions[]] | contains(["delete"])' tfplan.json)
@@ -177,6 +177,7 @@ jobs:
           else
             echo "Ninguna acción de destrucción detectada. Plan aprobado."
           fi
+
   # TODO
   # Aplicar el plan que produjo el job anterior, sin recalcularlo.
   # Corre solo desde la rama principal y solo si la compuerta del plan paso.
