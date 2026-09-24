@@ -127,23 +127,25 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
+        working-directory: ./infra
         run: terraform init -backend-config=backend.hcl
 
-      - name: Generar Terraform Plan
+      - name: Generar Terraform Plan (Binario, JSON y Texto)
+        working-directory: ./infra
         run: |
           terraform plan -out=tfplan
           terraform show -json tfplan > tfplan.json
           terraform show -no-color tfplan > plan.txt
 
-      - name: Comentar el plan en el Pull Request
+      - name: [Regla 2] Comentar el plan en el Pull Request
         if: github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const plan = fs.readFileSync('plan.txt', 'utf8');
-            const output = `#### Resultado de Terraform Plan
+            const plan = fs.readFileSync('./infra/plan.txt', 'utf8');
+            const output = `#### Resultado de Terraform Plan 📖
             <details><summary>Haz clic aquí para ver la diferencia exacta antes de aprobar</summary>
 
             \`\`\`terraform
@@ -162,9 +164,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
-          path: tfplan
+          path: ./infra/tfplan
           retention-days: 1
 
+      - name: [Regla 1] Compuerta contra destrucción
+        working-directory: ./infra
+        run: |
+          HAS_DELETE=$(jq '[.resource_changes[]?.change.actions[]] | contains(["delete"])' tfplan.json)
+          if [ "$HAS_DELETE" = "true" ]; then
+            echo "::error::El plan incluye acciones de destrucción o reemplazo no autorizadas."
+            exit 1
+          else
+            echo "Ninguna acción de destrucción detectada. Plan aprobado."
+          fi
   # TODO
   # Aplicar el plan que produjo el job anterior, sin recalcularlo.
   # Corre solo desde la rama principal y solo si la compuerta del plan paso.
