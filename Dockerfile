@@ -1,33 +1,22 @@
 # ETAPA 1: Construcción (Build)
 FROM public.ecr.aws/lambda/nodejs:20 AS build
 
-WORKDIR /app
+WORKDIR /build
 
-# 1. Manifiesto y lock file copiados antes del código
+# Manifiesto y lock file copiados e instalados antes del código
 COPY package.json package-lock.json ./
-
-# 2. Instalación desde el lock file
 RUN npm ci
 
-# Copiamos el código fuente
+# Copiamos el código de la aplicación
 COPY src ./src
 
-# Construimos la aplicación (empaqueta todo en dist/)
-RUN npm run build
+### NO TOCAR DE ACA EN ADELANTE, CONSIDEREN QUE EL WORKDIR DEBE SER /build
+RUN npx esbuild src/handler.js \
+      --bundle --platform=node --target=node20 \
+      --outfile=dist/handler.js
 
-# ---------------------------------------------------------
-# ETAPA 2: Runtime (Etapa Final)
+# Etapa final: recibe unicamente el artefacto empaquetado.
+# El arbol de node_modules se queda en la etapa anterior.
 FROM public.ecr.aws/lambda/nodejs:20 AS runtime
-
-# Usamos la ruta nativa de AWS Lambda
-WORKDIR ${LAMBDA_TASK_ROOT}
-
-# 3. SIN valores de credencial declarados (se eliminó ENV DB_PASSWORD)
-
-# 4. Únicamente el artefacto empaquetado pasa a la etapa final (NO node_modules)
-COPY --from=build /app/dist/ ./
-
-# 5. SIN gestores de sistema ni herramientas extra
-
-# Ejecutamos el handler desde la raíz (ya que copiamos el contenido de dist/)
+COPY --from=build /build/dist/handler.js ${LAMBDA_TASK_ROOT}/
 CMD ["handler.handler"]
