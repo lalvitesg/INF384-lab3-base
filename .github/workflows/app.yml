@@ -31,6 +31,77 @@ on:
   workflow_dispatch:
 
 jobs:
+  calidad:
+    needs: pruebas
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout del repositorio con historial completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Descargar el reporte de cobertura
+        uses: actions/download-artifact@v4
+        with:
+          name: cobertura
+          path: coverage/
+
+      - name: Análisis en SonarQube Cloud
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+
+  secretos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio con historial completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Buscar credenciales con Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencias:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Escanear package-lock.json con Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'package-lock.json'
+          format: 'table'
+          exit-code: '1'
+
+  estatico:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Analizar el codigo fuente
+        run: |
+          docker run --rm \
+          --volume "${PWD}:/src" \
+          --workdir /src \
+          --env SEMGREP_SEND_METRICS=off \
+          semgrep/semgrep \
+          semgrep scan \
+          --config=p/default \
+          --config=p/javascript \
+          --json --quiet \
+          --output=semgrep.json \
+          src/
 
   pruebas:
     runs-on: ubuntu-latest
