@@ -3,7 +3,7 @@
 # linea anterior. Corregirlas es el bloque A1 de la guia del laboratorio.
 
 # defecto 1 - OK
-FROM public.ecr.aws/lambda/nodejs:20.2024.03.15.12 AS build
+FROM public.ecr.aws/lambda/nodejs:20 AS build
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # defecto 4 - OK
-FROM public.ecr.aws/lambda/nodejs:20.2024.03.15.12 AS runtime
+FROM public.ecr.aws/lambda/nodejs:20 AS runtime
 
 ENV DB_PASSWORD=db_password
 
