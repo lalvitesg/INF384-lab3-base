@@ -1,34 +1,33 @@
-# Dockerfile del repositorio base.
-# Contiene cinco malas practicas deliberadas. Cada una lleva su numero en la
-# linea anterior. Corregirlas es el bloque A1 de la guia del laboratorio.
-
-# defecto 1 - OK
+# ETAPA 1: Construcción (Build)
 FROM public.ecr.aws/lambda/nodejs:20 AS build
 
 WORKDIR /app
 
-# defecto 2 - OK
+# 1. Manifiesto y lock file copiados antes del código
 COPY package.json package-lock.json ./
 
-# defecto 3 - OK
+# 2. Instalación desde el lock file
 RUN npm ci
 
+# Copiamos el código fuente
 COPY src ./src
 
-RUN npm run build && npm prune --omit=dev
+# Construimos la aplicación (empaqueta todo en dist/)
+RUN npm run build
 
-# defecto 4 - OK
+# ---------------------------------------------------------
+# ETAPA 2: Runtime (Etapa Final)
 FROM public.ecr.aws/lambda/nodejs:20 AS runtime
 
-ENV DB_PASSWORD=db_password
+# Usamos la ruta nativa de AWS Lambda
+WORKDIR ${LAMBDA_TASK_ROOT}
 
-WORKDIR /app
+# 3. SIN valores de credencial declarados (se eliminó ENV DB_PASSWORD)
 
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
+# 4. Únicamente el artefacto empaquetado pasa a la etapa final (NO node_modules)
+COPY --from=build /app/dist/ ./
 
-USER node
+# 5. SIN gestores de sistema ni herramientas extra
 
-# defecto 5 - OK
-
-CMD ["src/handler.handler"]
+# Ejecutamos el handler desde la raíz (ya que copiamos el contenido de dist/)
+CMD ["handler.handler"]
