@@ -1,0 +1,8 @@
+.gitignore
+.github/
+
+infra/
+test/
+
+README.md
+sonar-project.properties
