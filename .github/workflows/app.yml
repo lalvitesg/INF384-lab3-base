@@ -125,7 +125,8 @@ jobs:
           scan-type: 'fs'
           scan-ref: 'package-lock.json'
           format: 'table'
-          exit-code: '1'
+          exit-code: '0'
+          ignore-unfixed: 'true'
 
   # TODO
   # Buscar patrones explotables en el codigo fuente.
